@@ -1,7 +1,5 @@
 # t5sp-session-fix
 
-## Required Plutonium version: r3417
-
 A Plutonium T5SP server plugin to work around the session error.
  
 - After 3 session modify fails, it will try to recreate the session.
@@ -12,5 +10,5 @@ It hasn't been tested on very long server running sessions yet and might be unst
 The plugin skeleton is based on [t5-gsc-utils](https://github.com/fedddddd/t5-gsc-utils).
 
 ## Installation
-
+### Required Plutonium version: <ins>r3417</ins>
 Download the [latest release](https://github.com/Nahelam/t5sp-session-fix/releases/latest/) and put it in the `%LOCALAPPDATA%\Plutonium\storage\t5\plugins` folder.
