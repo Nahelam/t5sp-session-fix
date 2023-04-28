@@ -123,6 +123,12 @@ namespace session_fix
                     }
                 }
             }
+            else if (!session_recreate && result == game::TASK_ERROR)
+            {
+                // The server just started and failed to create a session
+                Session_Delete();
+                session_recreate = true;
+            }
 
             return result;
         }
