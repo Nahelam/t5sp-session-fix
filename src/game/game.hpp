@@ -4,6 +4,21 @@
 
 namespace game
 {
+    enum gamemode
+    {
+        none,
+        multiplayer,
+        singleplayer
+    };
+
+    extern gamemode current;
+
+    namespace environment
+    {
+        bool is_mp();
+        bool is_sp();
+    }
+
     template <typename T>
     class symbol
     {
