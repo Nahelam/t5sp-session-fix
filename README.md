@@ -11,4 +11,4 @@ The plugin skeleton is based on [t5-gsc-utils](https://github.com/fedddddd/t5-gs
 
 ## Installation
 ### Required Plutonium version: <ins>r3417</ins>
-Download the [latest release](https://github.com/Nahelam/t5sp-session-fix/releases/latest/) and put it in the `%LOCALAPPDATA%\Plutonium\storage\t5\plugins` folder.
+Download or compile the [latest release](https://github.com/Nahelam/t5sp-session-fix/releases/latest/) and put it in the `%LOCALAPPDATA%\Plutonium\storage\t5\plugins` folder.
