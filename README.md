@@ -1,5 +1,7 @@
 # t5sp-session-fix (for Plutonium r3417)
 
+## Required Plutonium version: r3417
+
 A Plutonium T5SP server plugin to work around the session error.
  
 - After 3 session modify fails, it will try to recreate the session.
