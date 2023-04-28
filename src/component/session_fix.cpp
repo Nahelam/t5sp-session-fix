@@ -18,8 +18,7 @@ namespace session_fix
         utils::hook::detour Session_StartHostComplete_hook;
         utils::hook::detour Session_Modify_hook;
         utils::hook::detour Session_ModifyComplete_hook;
-
-        utils::hook::detour Live_SetCurrentGametype_hook;
+        utils::hook::detour Session_UpdateNetCode_hook;
 
         utils::hook::detour Cbuf_AddText_hook;
 
@@ -68,7 +67,7 @@ namespace session_fix
             utils::hook::invoke<void>(game::dwCloseRemoteTask, task);
         }
 
-        void Session_Delete()
+        void session_delete()
         {
             //Disable session async mode to safely delete it
             (*game::session_nonblocking)->current.enabled = false;
@@ -76,12 +75,12 @@ namespace session_fix
             (*game::session_nonblocking)->current.enabled = true;
         }
 
-        void Session_Create()
+        void session_create()
         {
             game::Session_StartHost(game::g_serverSession, 0xBAD5E55, 4, 4);
         }
 
-        void Live_DemonWareReconnect()
+        void force_reconnect()
         {
             *game::dwControllerData_logOnAttempts = 0;
             *game::dwControllerData_forceLogOn = true;
@@ -109,7 +108,7 @@ namespace session_fix
 
                     session_create_error_count++;
 
-                    Session_Delete();
+                    session_delete();
 
                     if (session_create_error_count == SESSION_CREATE_MAX_FAILURES)
                     {
@@ -126,7 +125,7 @@ namespace session_fix
             else if (!session_recreate && result == game::TASK_ERROR)
             {
                 // The server just started and failed to create a session
-                Session_Delete();
+                session_delete();
                 session_recreate = true;
             }
 
@@ -158,11 +157,11 @@ namespace session_fix
             }
         }
 
-        void Live_SetCurrentGametype_stub(const int netCodeVersion)
+        void Session_UpdateNetCode_stub(const int netCodeVersion)
         {
             if (!session_recreate)
             {
-                Live_SetCurrentGametype_hook.invoke<void>(netCodeVersion);
+                Session_UpdateNetCode_hook.invoke<void>(netCodeVersion);
             }
         }
 
@@ -232,7 +231,7 @@ namespace session_fix
                 {
                     session_fix_print("Reached session modify failures limit, will attempt to recreate session...");
 
-                    Session_Delete();
+                    session_delete();
 
                     session_recreate = true;
                     session_modify_error_count = 0;
@@ -280,13 +279,13 @@ namespace session_fix
                 {
                     session_fix_print("Attempting to reconnect...");
                     reconnect_in_progress = true;
-                    Live_DemonWareReconnect();
+                    force_reconnect();
                 }
             }
 
             if (!reconnect && session_recreate && (onlineStatus == game::DW_LIVE_CONNECTED))
             {
-                Session_Create();
+                session_create();
             }
         }
     }
@@ -310,11 +309,10 @@ namespace session_fix
             // Avoid executing map_rotate after a reconnect attempt, it still works if executed from ExitLevel or from the server console, don't worry
             Cbuf_AddText_hook.create(game::Cbuf_AddText, Cbuf_AddText_stub);
 
-            Live_SetCurrentGametype_hook.create(game::Live_SetCurrentGametype, Live_SetCurrentGametype_stub);
-
             Session_StartHost_hook.create(game::Session_StartHost, Session_StartHost_stub);
             Session_StartHostComplete_hook.create(game::Session_StartHostComplete, Session_StartHostComplete_stub);
             Session_Modify_hook.create(game::Session_Modify, Session_Modify_stub);
+            Session_UpdateNetCode_hook.create(game::Session_UpdateNetCode, Session_UpdateNetCode_stub);
 
             scheduler::loop(session_fix_watchdog, scheduler::server, 15000ms, true);
 
