@@ -1,4 +1,4 @@
-# t5sp-session-fix
+# t5sp-session-fix (for Plutonium r3417)
 
 A Plutonium T5SP server plugin to work around the session error.
  
