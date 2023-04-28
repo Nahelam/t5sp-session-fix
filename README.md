@@ -1,4 +1,4 @@
-# t5sp-session-fix (for Plutonium r3417)
+# t5sp-session-fix
 
 ## Required Plutonium version: r3417
 
