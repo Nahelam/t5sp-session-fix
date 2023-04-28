@@ -37,11 +37,11 @@ jobs:
         uses: ammaraskar/msvc-problem-matcher@master
 
       - name: Build ${{matrix.configuration}} binaries
-        run: msbuild /m /v:minimal /p:Configuration=${{matrix.configuration}} /p:PlatformTarget=x86 build/t5-gsc-utils.sln
+        run: msbuild /m /v:minimal /p:Configuration=${{matrix.configuration}} /p:PlatformTarget=x86 build/t5sp-session-fix.sln
 
       - name: Upload ${{matrix.configuration}} binaries
         uses: actions/upload-artifact@v2
         with:
           name: ${{matrix.configuration}} binaries
           path: |
-            build/bin/${{matrix.configuration}}/t5-gsc-utils.dll
+            build/bin/${{matrix.configuration}}/t5sp-session-fix.dll
