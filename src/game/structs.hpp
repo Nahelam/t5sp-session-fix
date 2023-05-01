@@ -1,7 +1,5 @@
 #pragma once
 
-#define STATIC_ASSERT_OFFSET(struct, member, offset)    static_assert(offsetof(struct, member) == offset, "Offset check")
-
 namespace game
 {
     enum DWOnlineStatus
@@ -120,12 +118,12 @@ namespace game
         int ackedMeetBits;
         int lastMeetSendTime;
     };
-    STATIC_ASSERT_OFFSET(SessionData_s, keysGenerated, 0x36);
-    STATIC_ASSERT_OFFSET(SessionData_s, registeredUsers, 0x60);
-    STATIC_ASSERT_OFFSET(SessionData_s, remoteTalkers, 0x100);
-    STATIC_ASSERT_OFFSET(SessionData_s, localTalkers, 0x180);
-    STATIC_ASSERT_OFFSET(SessionData_s, voiceConnectivityBits, 0x184);
     static_assert(sizeof(SessionData_s) == 0x198);
+    static_assert(offsetof(SessionData_s, keysGenerated) == 0x36);
+    static_assert(offsetof(SessionData_s, registeredUsers) == 0x60);
+    static_assert(offsetof(SessionData_s, remoteTalkers) == 0x100);
+    static_assert(offsetof(SessionData_s, localTalkers) == 0x180);
+    static_assert(offsetof(SessionData_s, voiceConnectivityBits) == 0x184);
 
     struct MatchMakingInfo
     {

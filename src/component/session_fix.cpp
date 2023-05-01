@@ -19,10 +19,13 @@ namespace session_fix
         utils::hook::detour Session_Modify_hook;
         utils::hook::detour Session_ModifyComplete_hook;
         utils::hook::detour Session_UpdateNetCode_hook;
-
         utils::hook::detour Cbuf_AddText_hook;
 
+        // Keep track of the moment we entered in the session recreate state
+        std::chrono::steady_clock::time_point session_recreate_time;
+
         bool session_recreate = false;
+        bool session_recreate_in_progress = false;
         bool reconnect = false;
 
         void session_fix_print(const char* format, ...)
@@ -57,7 +60,6 @@ namespace session_fix
             char errorStr[0x40] = {};
 
             game::dwLobbyErrorCodeToString(errorCode, errorStr, sizeof(errorStr));
-
             session_fix_print("Session update error %i - '%s'", errorCode, errorStr);
         }
 
@@ -69,7 +71,7 @@ namespace session_fix
 
         void session_delete()
         {
-            //Disable session async mode to safely delete it
+            // Disable non-blocking mode to ensure the session deletion
             (*game::session_nonblocking)->current.enabled = false;
             game::Session_DeleteSession(game::g_serverSession);
             (*game::session_nonblocking)->current.enabled = true;
@@ -78,6 +80,12 @@ namespace session_fix
         void session_create()
         {
             game::Session_StartHost(game::g_serverSession, 0xBAD5E55, 4, 4);
+        }
+
+        void session_set_recreate()
+        {
+            session_recreate = true;
+            session_recreate_time = std::chrono::high_resolution_clock::now();
         }
 
         void force_reconnect()
@@ -105,10 +113,7 @@ namespace session_fix
                 else if (result == game::TASK_ERROR)
                 {
                     session_fix_print("Failed to recreate session");
-
                     session_create_error_count++;
-
-                    session_delete();
 
                     if (session_create_error_count == SESSION_CREATE_MAX_FAILURES)
                     {
@@ -121,12 +126,13 @@ namespace session_fix
                         session_fix_print("Will try to recreate session again soon...");
                     }
                 }
+
+                session_recreate_in_progress = false;
             }
             else if (!session_recreate && result == game::TASK_ERROR)
             {
                 // The server just started and failed to create a session
-                session_delete();
-                session_recreate = true;
+                session_set_recreate();
             }
 
             return result;
@@ -186,8 +192,6 @@ namespace session_fix
 
         game::taskCompleteResults Session_ModifyComplete(/* const int slot (in eax) */)
         {
-            // -------------------------------- Original code BEGIN
-
             int slot;
             __asm
             {
@@ -198,6 +202,14 @@ namespace session_fix
             game::overlappedTask* sessionModifyOverlappedIO;
 
             sessionModifyOverlappedIO = &((*game::overlappedTasks_2)[slot]);
+
+            if (session_recreate)
+            {
+                session_fix_print("Clearing session modify task...");
+                game::TaskManager_ClearTask(sessionModifyOverlappedIO);
+                return game::TASK_COMPLETE;
+            }
+
             result = game::dwUpdateSessionComplete(sessionModifyOverlappedIO);
 
             if (result == game::TASK_ERROR)
@@ -219,8 +231,6 @@ namespace session_fix
                 game::TaskManager_ClearTask(sessionModifyOverlappedIO);
             }
 
-            // -------------------------------- Original code END
-
             static unsigned int session_modify_error_count = 0;
 
             if (result == game::TASK_ERROR)
@@ -230,10 +240,7 @@ namespace session_fix
                 if (session_modify_error_count == SESSION_MODIFY_MAX_FAILURES)
                 {
                     session_fix_print("Reached session modify failures limit, will attempt to recreate session...");
-
-                    session_delete();
-
-                    session_recreate = true;
+                    session_set_recreate();
                     session_modify_error_count = 0;
                 }
             }
@@ -283,9 +290,19 @@ namespace session_fix
                 }
             }
 
-            if (!reconnect && session_recreate && (onlineStatus == game::DW_LIVE_CONNECTED))
+            if (!reconnect && (session_recreate && !session_recreate_in_progress) && (onlineStatus == game::DW_LIVE_CONNECTED))
             {
-                session_create();
+                const auto now = std::chrono::high_resolution_clock::now();
+                const auto diff = now - session_recreate_time;
+
+                // Wait a bit before attempting to recreate the session
+                if (diff > 10000ms)
+                {
+                    session_recreate_in_progress = true;
+                    session_fix_print("Recreating session...");
+                    session_delete();
+                    session_create();
+                }
             }
         }
     }
@@ -295,8 +312,11 @@ namespace session_fix
     public:
         void post_unpack() override
         {
-            // Disable Com_Error call just in case (Session_StartHostComplete+0x2A6)
+            // Disable Com_Error call if the session creation fails (Session_StartHostComplete+0x2A6)
             utils::hook::nop(0x8B3716, 5);
+
+            // Disable Com_Error call in Live_DemonwareDisconnectCleanup just in case (Live_DemonwareDisconnectCleanup+0x4A)
+            utils::hook::nop(0x468E3A, 5);
 
             // Redirect Com_DPrintf to Com_Printf for more verbosity
             utils::hook::jump(reinterpret_cast<uintptr_t>(game::Com_DPrintf.get()), game::Com_Printf);
@@ -314,10 +334,10 @@ namespace session_fix
             Session_Modify_hook.create(game::Session_Modify, Session_Modify_stub);
             Session_UpdateNetCode_hook.create(game::Session_UpdateNetCode, Session_UpdateNetCode_stub);
 
-            scheduler::loop(session_fix_watchdog, scheduler::server, 15000ms, true);
+            scheduler::loop(session_fix_watchdog, scheduler::async, 15000ms, true);
 
-            session_fix_print("Session fix loaded");
-            session_fix_print("Will try to recreate session after %d consecutives failures", SESSION_MODIFY_MAX_FAILURES);
+            session_fix_print("Loaded!");
+            session_fix_print("SESSION_MODIFY_MAX_FAILURES: %d, SESSION_CREATE_MAX_FAILURES: %d, RECONNECT_MAX_WATCH: %d", SESSION_MODIFY_MAX_FAILURES, SESSION_CREATE_MAX_FAILURES, RECONNECT_MAX_WATCH);
         }
     };
 }
