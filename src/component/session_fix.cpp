@@ -8,6 +8,7 @@
 #define SESSION_MODIFY_MAX_FAILURES 3
 #define SESSION_CREATE_MAX_FAILURES 3
 
+#define SESSION_RECREATE_MAX_WATCH 3
 #define RECONNECT_MAX_WATCH 3
 
 namespace session_fix
@@ -254,8 +255,11 @@ namespace session_fix
 
         void session_fix_watchdog()
         {
+            static unsigned int session_recreate_watch_count = 0;
             static unsigned int reconnect_watch_count = 0;
             static bool reconnect_in_progress = false;
+
+            session_fix_print("Watchdog is alive");
 
             game::DWOnlineStatus onlineStatus = game::dwGetLogOnStatus(0);
 
@@ -290,18 +294,34 @@ namespace session_fix
                 }
             }
 
-            if (!reconnect && (session_recreate && !session_recreate_in_progress) && (onlineStatus == game::DW_LIVE_CONNECTED))
+            if (!reconnect && session_recreate && (onlineStatus == game::DW_LIVE_CONNECTED))
             {
-                const auto now = std::chrono::high_resolution_clock::now();
-                const auto diff = now - session_recreate_time;
-
-                // Wait a bit before attempting to recreate the session
-                if (diff > 10000ms)
+                if (session_recreate_in_progress)
                 {
-                    session_recreate_in_progress = true;
-                    session_fix_print("Recreating session...");
-                    session_delete();
-                    session_create();
+                    session_recreate_watch_count++;
+
+                    if (session_recreate_watch_count == SESSION_RECREATE_MAX_WATCH)
+                    {
+                        session_fix_print("Looks like something went wrong with dwCreateSession, will attempt a whole reconnect...");
+                        session_recreate_watch_count = 0;
+                        session_recreate_in_progress = false;
+                        session_delete();
+                        reconnect = true;
+                    }
+                }
+                else
+                {
+                    const auto now = std::chrono::high_resolution_clock::now();
+                    const auto diff = now - session_recreate_time;
+
+                    // Wait a bit before attempting to recreate the session
+                    if (diff > 10000ms)
+                    {
+                        session_recreate_in_progress = true;
+                        session_fix_print("Recreating session...");
+                        session_delete();
+                        session_create();
+                    }
                 }
             }
         }
