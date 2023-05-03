@@ -8,25 +8,26 @@
 #define SESSION_MODIFY_MAX_FAILURES 3
 #define SESSION_CREATE_MAX_FAILURES 3
 
-#define SESSION_RECREATE_MAX_WATCH 3
 #define RECONNECT_MAX_WATCH 3
 
 namespace session_fix
 {
     namespace
     {
+
+        utils::hook::detour Cbuf_AddText_hook;
         utils::hook::detour Session_StartHost_hook;
         utils::hook::detour Session_StartHostComplete_hook;
         utils::hook::detour Session_Modify_hook;
         utils::hook::detour Session_ModifyComplete_hook;
         utils::hook::detour Session_UpdateNetCode_hook;
-        utils::hook::detour Cbuf_AddText_hook;
+        utils::hook::detour dwCreateSessionComplete_hook;
 
         // Keep track of the moment we entered in the session recreate state
         std::chrono::steady_clock::time_point session_recreate_time;
 
         bool session_recreate = false;
-        bool session_recreate_in_progress = false;
+        bool session_recreate_dw_ok = false;
         bool reconnect = false;
 
         void session_fix_print(const char* format, ...)
@@ -95,6 +96,20 @@ namespace session_fix
             *game::dwControllerData_forceLogOn = true;
         }
 
+        game::taskCompleteResults dwCreateSessionComplete_stub(game::overlappedTask* const task)
+        {
+            game::taskCompleteResults result;
+
+            result = dwCreateSessionComplete_hook.invoke<game::taskCompleteResults>(task);
+
+            if (session_recreate && result == game::TASK_COMPLETE)
+            {
+                session_recreate_dw_ok = true;
+            }
+
+            return result;
+        }
+
         game::taskCompleteResults Session_StartHostComplete_stub(const int slot)
         {
             static unsigned int session_create_error_count = 0;
@@ -105,15 +120,22 @@ namespace session_fix
 
             if (session_recreate && result != game::TASK_NOTCOMPLETE)
             {
-                if (result == game::TASK_COMPLETE)
+                if (session_recreate_dw_ok && result == game::TASK_COMPLETE)
                 {
                     session_fix_print("Session recreated successfully");
                     game::Party_ReAddAllPlayers(game::g_lobbyData);
+                    session_recreate_dw_ok = false;
                     session_recreate = false;
                 }
-                else if (result == game::TASK_ERROR)
+                else if (!session_recreate_dw_ok || result == game::TASK_ERROR)
                 {
                     session_fix_print("Failed to recreate session");
+
+                    if (!session_recreate_dw_ok)
+                    {
+                        session_fix_print("Something went wrong with dwCreateSession");
+                    }
+
                     session_create_error_count++;
 
                     if (session_create_error_count == SESSION_CREATE_MAX_FAILURES)
@@ -127,8 +149,6 @@ namespace session_fix
                         session_fix_print("Will try to recreate session again soon...");
                     }
                 }
-
-                session_recreate_in_progress = false;
             }
             else if (!session_recreate && result == game::TASK_ERROR)
             {
@@ -255,7 +275,6 @@ namespace session_fix
 
         void session_fix_watchdog()
         {
-            static unsigned int session_recreate_watch_count = 0;
             static unsigned int reconnect_watch_count = 0;
             static bool reconnect_in_progress = false;
 
@@ -296,32 +315,15 @@ namespace session_fix
 
             if (!reconnect && session_recreate && (onlineStatus == game::DW_LIVE_CONNECTED))
             {
-                if (session_recreate_in_progress)
-                {
-                    session_recreate_watch_count++;
+                const auto now = std::chrono::high_resolution_clock::now();
+                const auto diff = now - session_recreate_time;
 
-                    if (session_recreate_watch_count == SESSION_RECREATE_MAX_WATCH)
-                    {
-                        session_fix_print("Looks like something went wrong with dwCreateSession, will attempt a whole reconnect...");
-                        session_recreate_watch_count = 0;
-                        session_recreate_in_progress = false;
-                        session_delete();
-                        reconnect = true;
-                    }
-                }
-                else
+                // Wait a bit before attempting to recreate the session
+                if (diff > 10000ms)
                 {
-                    const auto now = std::chrono::high_resolution_clock::now();
-                    const auto diff = now - session_recreate_time;
-
-                    // Wait a bit before attempting to recreate the session
-                    if (diff > 10000ms)
-                    {
-                        session_recreate_in_progress = true;
-                        session_fix_print("Recreating session...");
-                        session_delete();
-                        session_create();
-                    }
+                    session_fix_print("Recreating session...");
+                    session_delete();
+                    session_create();
                 }
             }
         }
@@ -344,11 +346,13 @@ namespace session_fix
             // Hook dwCloseRemoteTask call to retrieve DW error code (dwUpdateSessionComplete+0xB0)
             utils::hook::call(0x53EB20, dwCloseRemoteTask_stub);
 
-            Session_ModifyComplete_hook.create(game::Session_ModifyComplete, Session_ModifyComplete);
+            // Ensure session creation at a deeper level because it seems that sometimes Session_StartHostComplete isn't reliable enough
+            dwCreateSessionComplete_hook.create(game::dwCreateSessionComplete, dwCreateSessionComplete_stub);
 
             // Avoid executing map_rotate after a reconnect attempt, it still works if executed from ExitLevel or from the server console, don't worry
             Cbuf_AddText_hook.create(game::Cbuf_AddText, Cbuf_AddText_stub);
 
+            Session_ModifyComplete_hook.create(game::Session_ModifyComplete, Session_ModifyComplete);
             Session_StartHost_hook.create(game::Session_StartHost, Session_StartHost_stub);
             Session_StartHostComplete_hook.create(game::Session_StartHostComplete, Session_StartHostComplete_stub);
             Session_Modify_hook.create(game::Session_Modify, Session_Modify_stub);

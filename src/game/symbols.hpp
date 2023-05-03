@@ -20,6 +20,7 @@ namespace game
     WEAK symbol <bdLobbyErrorCode(void* _this)> bdRemoteTask_getErrorCode{ 0x935BB0 };
 
     WEAK symbol <taskCompleteResults(overlappedTask* const task)> dwUpdateSessionComplete{ 0x53EA70 };
+    WEAK symbol <taskCompleteResults(overlappedTask* const task)> dwCreateSessionComplete{ 0x4B7190 };
     WEAK symbol <void(overlappedTask* task)> dwCloseRemoteTask{ 0x6426A0 };
     WEAK symbol <void(const bdLobbyErrorCode code, char* const buffer, const unsigned int bufferSize)> dwLobbyErrorCodeToString{ 0x5B3770 };
     WEAK symbol <DWOnlineStatus(const int localControllerIndex)> dwGetLogOnStatus{ 0x6677C0 };
