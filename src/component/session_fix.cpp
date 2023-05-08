@@ -194,18 +194,19 @@ namespace session_fix
 
         void Cbuf_AddText_stub(int localClientNum, const char* text)
         {
+            const char* pluto_map_rotate_str_addr = nullptr;
             static bool first_map_rotate_executed = false;
 
-            if (reinterpret_cast<int>(text) == 0x19E498)
+            if (!first_map_rotate_executed && !(game::I_strncmp(text, "map_rotate\n", 11)))
             {
-                if (!first_map_rotate_executed)
-                {
-                    first_map_rotate_executed = true;
-                }
-                else
-                {
-                    return;
-                }
+                pluto_map_rotate_str_addr = text;
+                first_map_rotate_executed = true;
+            }
+
+            else if (first_map_rotate_executed && text == pluto_map_rotate_str_addr)
+            {
+                session_fix_print("Prevented map_rotate");
+                return;
             }
 
             Cbuf_AddText_hook.invoke<void>(localClientNum, text);

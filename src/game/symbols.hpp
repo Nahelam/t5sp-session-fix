@@ -8,6 +8,8 @@ namespace game
 {
     // Functions
 
+    WEAK symbol <int(const char* s0, const char* s1, int n)> I_strncmp{ 0x5ED6F0 };
+
     WEAK symbol <int(char* string, unsigned int count, const char* format, char* ap)> _vsnprintf{ 0x965D30 };
 
     WEAK symbol<void(int channel, const char* fmt, ...)> Com_Printf{ 0x43BF30 };
