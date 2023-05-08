@@ -194,7 +194,7 @@ namespace session_fix
 
         void Cbuf_AddText_stub(int localClientNum, const char* text)
         {
-            const char* pluto_map_rotate_str_addr = nullptr;
+            static const char* pluto_map_rotate_str_addr = nullptr;
             static bool first_map_rotate_executed = false;
 
             if (!first_map_rotate_executed && !(game::I_strncmp(text, "map_rotate\n", 11)))
