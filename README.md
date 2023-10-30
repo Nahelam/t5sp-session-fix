@@ -5,8 +5,6 @@ A Plutonium T5SP server plugin to work around the session error.
 - After 3 consecutive session modify fails, it will try to recreate the session.
 - After 3 consecutive session create fails, it will try to reinitiate the connection with the Plutonium servers.
 
-It hasn't been tested on very long server running sessions yet and might be unstable, your feedback is welcome!
-
 The plugin skeleton is based on [t5-gsc-utils](https://github.com/fedddddd/t5-gsc-utils).
 
 ## Installation
