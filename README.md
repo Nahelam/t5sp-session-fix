@@ -9,3 +9,7 @@ The plugin skeleton is based on [t5-gsc-utils](https://github.com/fedddddd/t5-gs
 
 ## Installation
 Download or compile the [latest release](https://github.com/Nahelam/t5sp-session-fix/releases/latest/) and put it in the `%LOCALAPPDATA%\Plutonium\storage\t5\plugins` folder.
+
+## Archiving Note
+This repository is no longer maintained and the issue has probably been fixed by now.  
+https://forum.plutonium.pw/topic/29906/plugin-t5sp-session-error-fix
